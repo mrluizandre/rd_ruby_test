@@ -7,6 +7,7 @@ class MaxCustomerError < StandardError ; end
 class CustomerSuccessIdError < StandardError ; end
 class CustomerIdError < StandardError ; end
 class CustomerSuccessLevelError < StandardError ; end
+class CustomerLevelError < StandardError ; end
 
 class CustomerSuccessBalancing
   def initialize(customer_success, customers, away_customer_success)
@@ -47,8 +48,14 @@ class CustomerSuccessBalancing
     ) unless customer_id_in_range?
 
     raise CustomerSuccessLevelError.new(
-      "Customer level out of range (1...10.000)"
+      "Customer success level out of range (1...10.000)"
+    ) unless customer_success_level_in_range?
+
+    raise CustomerLevelError.new(
+      "Customer level out of range (1...100.000)"
     ) unless customer_level_in_range?
+
+    
   end
 
   def cs_scores_uniq?
@@ -71,8 +78,12 @@ class CustomerSuccessBalancing
     @customers.all? {|c| 0 < c[:id] and c[:id] < 1_000_000}
   end
 
-  def customer_level_in_range?
+  def customer_success_level_in_range?
     @customer_success.all? {|cs| 0 < cs[:score] and cs[:score] < 10_000}
+  end
+
+  def customer_level_in_range?
+    @customers.all? {|c| 0 < c[:score] and c[:score] < 100_000}
   end
 
   # Get the ID of the CS with more customers on return 0 if more than one
@@ -253,6 +264,20 @@ class CustomerSuccessBalancingTests < Minitest::Test
       [4, 5, 6]
     )
     assert_raises CustomerSuccessLevelError do
+      balancer.execute
+    end
+  end
+
+  def test_customer_level_exception
+    balancer = CustomerSuccessBalancing.new(
+      build_scores([100, 99, 88, 3, 4, 5]),
+      [{ id: 1, score: 2 },{ id: 3, score: 100_000 }],
+      [4, 5, 6]
+    )
+    # This constrain of customer level be able to go as high as 100_000
+    # will bring a business error because the CS level can go only until
+    # 10_000. This way some customers will not have a CS able to manage them.
+    assert_raises CustomerLevelError do
       balancer.execute
     end
   end
