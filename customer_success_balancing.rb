@@ -108,7 +108,7 @@ class CustomerSuccessBalancing
     ) unless customer_level_in_range?
 
     raise CustomerSuccessAbstensionError.new(
-      "Customer success is too high"
+      "Customer success abstencion is too high"
     ) unless customer_success_abstension_acceptable?
   end
 
