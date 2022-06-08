@@ -1,10 +1,11 @@
 require 'minitest/autorun'
 require 'timeout'
 
-class CustomerSuccessSameLevelError < StandardError; end
-class MaxCustomerSuccessError < StandardError; end
-class MaxCustomerError < StandardError; end
-class CustomerSuccesIdError < StandardError; end
+class CustomerSuccessSameLevelError < StandardError ; end
+class MaxCustomerSuccessError < StandardError ; end
+class MaxCustomerError < StandardError ; end
+class CustomerSuccessIdError < StandardError ; end
+class CustomerIdError < StandardError ; end
 
 class CustomerSuccessBalancing
   def initialize(customer_success, customers, away_customer_success)
@@ -36,9 +37,13 @@ class CustomerSuccessBalancing
       "Max customers number of 999999 reached"
     ) unless not_max_customer?
 
-    raise CustomerSuccesIdError.new(
+    raise CustomerSuccessIdError.new(
       "Customer success id out of range (1...1000)"
     ) unless cs_id_in_range?
+
+    raise CustomerIdError.new(
+      "Customer id out of range (1...1.000.000)"
+    ) unless customer_id_in_range?
   end
 
   def cs_scores_uniq?
@@ -54,7 +59,11 @@ class CustomerSuccessBalancing
   end
 
   def cs_id_in_range?
-    @customer_success.all? {|cs| 1 <= cs[:id] and cs[:id] <= 1000}
+    @customer_success.all? {|cs| 0 < cs[:id] and cs[:id] < 1000}
+  end
+
+  def customer_id_in_range?
+    @customers.all? {|c| 0 < c[:id] and c[:id] < 1_000_000}
   end
 
   # Get the ID of the CS with more customers on return 0 if more than one
@@ -212,7 +221,18 @@ class CustomerSuccessBalancingTests < Minitest::Test
       build_scores([10, 10, 10, 20, 20, 30, 30, 30, 20, 60]),
       [4, 5, 6]
     )
-    assert_raises CustomerSuccesIdError do
+    assert_raises CustomerSuccessIdError do
+      balancer.execute
+    end
+  end
+
+  def test_customer_id_exception
+    balancer = CustomerSuccessBalancing.new(
+      build_scores([100, 99, 88, 3, 4, 5]),
+      [{ id: 1, score: 2 },{ id: 1_000_000, score: 4 }],
+      [4, 5, 6]
+    )
+    assert_raises CustomerIdError do
       balancer.execute
     end
   end
