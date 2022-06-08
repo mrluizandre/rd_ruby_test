@@ -4,6 +4,7 @@ require 'timeout'
 class CustomerSuccessSameLevelError < StandardError; end
 class MaxCustomerSuccessError < StandardError; end
 class MaxCustomerError < StandardError; end
+class CustomerSuccesIdError < StandardError; end
 
 class CustomerSuccessBalancing
   def initialize(customer_success, customers, away_customer_success)
@@ -23,9 +24,21 @@ class CustomerSuccessBalancing
   end
 
   def check_constraints
-    raise CustomerSuccessSameLevelError.new "Customer Success with the same score not allowed" unless cs_scores_uniq?
-    raise MaxCustomerSuccessError.new "Max customer success number of 999 reached" unless not_max_customer_success?
-    raise MaxCustomerError.new "Max customers number of 999999 reached" unless not_max_customer?
+    raise CustomerSuccessSameLevelError.new(
+      "Customer Success with the same score not allowed"
+    ) unless cs_scores_uniq?
+
+    raise MaxCustomerSuccessError.new(
+      "Max customer success number of 999 reached"
+    ) unless not_max_customer_success?
+
+    raise MaxCustomerError.new(
+      "Max customers number of 999999 reached"
+    ) unless not_max_customer?
+
+    raise CustomerSuccesIdError.new(
+      "Customer success id out of range (1...1000)"
+    ) unless cs_id_in_range?
   end
 
   def cs_scores_uniq?
@@ -38,6 +51,10 @@ class CustomerSuccessBalancing
 
   def not_max_customer?
     @customers.count < 1_000_000
+  end
+
+  def cs_id_in_range?
+    @customer_success.all? {|cs| 1 <= cs[:id] and cs[:id] <= 1000}
   end
 
   # Get the ID of the CS with more customers on return 0 if more than one
@@ -185,6 +202,17 @@ class CustomerSuccessBalancingTests < Minitest::Test
       [4, 5, 6]
     )
     assert_raises MaxCustomerError do
+      balancer.execute
+    end
+  end
+
+  def test_cs_id_exception
+    balancer = CustomerSuccessBalancing.new(
+      [{ id: 1, score: 2 },{ id: 2121, score: 3 }],
+      build_scores([10, 10, 10, 20, 20, 30, 30, 30, 20, 60]),
+      [4, 5, 6]
+    )
+    assert_raises CustomerSuccesIdError do
       balancer.execute
     end
   end
