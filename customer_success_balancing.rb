@@ -2,6 +2,7 @@ require 'minitest/autorun'
 require 'timeout'
 
 class CustomerSuccessSameLevelError < StandardError; end
+class MaxCustomerSuccessError < StandardError; end
 
 class CustomerSuccessBalancing
   def initialize(customer_success, customers, away_customer_success)
@@ -22,10 +23,15 @@ class CustomerSuccessBalancing
 
   def check_constraints
     raise CustomerSuccessSameLevelError.new "Customer Success with the same score not allowed" unless cs_scores_uniq?
+    raise MaxCustomerSuccessError.new "Max customer successs number of 999 reached" unless not_max_customer_success?
   end
 
   def cs_scores_uniq?
     @customer_success.uniq{|c| c[:score]} == @customer_success
+  end
+
+  def not_max_customer_success?
+    @customer_success.count < 1000
   end
 
   # Get the ID of the CS with more customers on return 0 if more than one
@@ -151,6 +157,17 @@ class CustomerSuccessBalancingTests < Minitest::Test
       [4, 5, 6]
     )
     assert_raises CustomerSuccessSameLevelError do
+      balancer.execute
+    end
+  end
+
+  def test_number_of_cs_exception
+    balancer = CustomerSuccessBalancing.new(
+      build_scores(Array(1..1000)),
+      build_scores([10, 10, 10, 20, 20, 30, 30, 30, 20, 60]),
+      [4, 5, 6]
+    )
+    assert_raises MaxCustomerSuccessError do
       balancer.execute
     end
   end
