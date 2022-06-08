@@ -6,6 +6,7 @@ class MaxCustomerSuccessError < StandardError ; end
 class MaxCustomerError < StandardError ; end
 class CustomerSuccessIdError < StandardError ; end
 class CustomerIdError < StandardError ; end
+class CustomerSuccessLevelError < StandardError ; end
 
 class CustomerSuccessBalancing
   def initialize(customer_success, customers, away_customer_success)
@@ -44,6 +45,10 @@ class CustomerSuccessBalancing
     raise CustomerIdError.new(
       "Customer id out of range (1...1.000.000)"
     ) unless customer_id_in_range?
+
+    raise CustomerSuccessLevelError.new(
+      "Customer level out of range (1...10.000)"
+    ) unless customer_level_in_range?
   end
 
   def cs_scores_uniq?
@@ -64,6 +69,10 @@ class CustomerSuccessBalancing
 
   def customer_id_in_range?
     @customers.all? {|c| 0 < c[:id] and c[:id] < 1_000_000}
+  end
+
+  def customer_level_in_range?
+    @customer_success.all? {|cs| 0 < cs[:score] and cs[:score] < 10_000}
   end
 
   # Get the ID of the CS with more customers on return 0 if more than one
@@ -233,6 +242,17 @@ class CustomerSuccessBalancingTests < Minitest::Test
       [4, 5, 6]
     )
     assert_raises CustomerIdError do
+      balancer.execute
+    end
+  end
+
+  def test_cs_level_exception
+    balancer = CustomerSuccessBalancing.new(
+      [{ id: 1, score: 1 },{ id: 2, score: 10000 }],
+      build_scores([10, 10, 10, 20, 20, 30, 30, 30, 20, 60]),
+      [4, 5, 6]
+    )
+    assert_raises CustomerSuccessLevelError do
       balancer.execute
     end
   end
