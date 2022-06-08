@@ -27,6 +27,57 @@ class CustomerSuccessBalancing
     cs_id_with_more_customers
   end
 
+  # Get the ID of the CS with more customers on return 0 if more than one
+  def cs_id_with_more_customers
+    cs = @customers_by_cs.max_by{|c| c[:clients_count]}
+    max_duplicate?(cs[:clients_count]) ? 0 : cs[:customer_success_id]
+  end
+
+  # Check if the CS there is only one CS with more customers
+  def max_duplicate?(max)
+    @customers_by_cs.select{|cbs| cbs[:clients_count] == max}.count > 1
+  end
+
+  # Count the customers by CS
+  def count_customers
+    @customers_by_cs = @css_available.map do |ca|
+      {
+        customer_success_id: ca[:id],
+        clients_count: ca[:clients].count
+      }
+    end
+  end
+
+  # Distribute the clients by CSs matchin the criteria
+  def balance
+    @css_available.each_with_index do |ca, i|
+      # Add the customer to CS list if he/she has same less score
+      @css_available[i][:clients] = @customers.select do |c|
+        c[:score] <= ca[:score]
+      end
+      # Remove the assigned customers from the list yet to be
+      # distributed
+      @customers -= @css_available[i][:clients]
+    end
+  end
+
+  # Sort the CSs by score in a way the method "balance"
+  # gets the less greduated first so the bigger the CS
+  # the more graduated customers he/she gets
+  def sort_customer_success
+    @css_available = @css_available.sort_by do |ca|
+      ca[:score]
+    end
+  end
+
+  # Create a list with only the CSs available
+  def filter_css
+    @css_available = @customer_success.reject do |cs|
+      @away_customer_success.include? cs[:id]
+    end
+  end
+
+  # Check business constraints
   def check_constraints
     raise CustomerSuccessSameLevelError.new(
       "Customer Success with the same score not allowed"
@@ -91,56 +142,6 @@ class CustomerSuccessBalancing
 
   def customer_success_abstension_acceptable?
     @away_customer_success.count <= (@customer_success.count / 2).floor
-  end
-
-  # Get the ID of the CS with more customers on return 0 if more than one
-  def cs_id_with_more_customers
-    cs = @customers_by_cs.max_by{|c| c[:clients_count]}
-    max_duplicate?(cs[:clients_count]) ? 0 : cs[:customer_success_id]
-  end
-
-  # Check if the CS there is only one CS with more customers
-  def max_duplicate?(max)
-    @customers_by_cs.select{|cbs| cbs[:clients_count] == max}.count > 1
-  end
-
-  # Count the customers by CS
-  def count_customers
-    @customers_by_cs = @css_available.map do |ca|
-      {
-        customer_success_id: ca[:id],
-        clients_count: ca[:clients].count
-      }
-    end
-  end
-
-  # Distribute the clients by CSs matchin the criteria
-  def balance
-    @css_available.each_with_index do |ca, i|
-      # Add the customer to CS list if he/she has same less score
-      @css_available[i][:clients] = @customers.select do |c|
-        c[:score] <= ca[:score]
-      end
-      # Remove the assigned customers from the list yet to be
-      # distributed
-      @customers -= @css_available[i][:clients]
-    end
-  end
-
-  # Sort the CSs by score in a way the method "balance"
-  # gets the less greduated first so the bigger the CS
-  # the more graduated customers he/she gets
-  def sort_customer_success
-    @css_available = @css_available.sort_by do |ca|
-      ca[:score]
-    end
-  end
-
-  # Create a list with only the CSs available
-  def filter_css
-    @css_available = @customer_success.reject do |cs|
-      @away_customer_success.include? cs[:id]
-    end
   end
 end
 
